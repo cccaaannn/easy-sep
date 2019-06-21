@@ -5,8 +5,9 @@ import datetime
 from PIL import Image
 
 
-
-# returns the abs path of destination renames it if it exists on the destination
+"""
+checks the existance of a file and renames it if it exists on the destination and returns the abs path of destination
+"""
 def check_existace_and_rename(src_path, dest_path):
     i = 1
     file_name = os.path.basename(src_path)
@@ -21,7 +22,9 @@ def check_existace_and_rename(src_path, dest_path):
 
     return dest_path + os.sep + name_temp
 
-
+"""
+moves file
+"""
 def move_file(src, dest):
     try:
         shutil.move(src, dest)
@@ -30,7 +33,9 @@ def move_file(src, dest):
         print("file not found")
         return 0
 
-
+"""
+copies file
+"""
 def copy_file(src, dest):
     try:
         shutil.copy(src, dest)
@@ -39,18 +44,20 @@ def copy_file(src, dest):
         print("file not found")
         return 0
 
-
-
-
-
+"""
+gets date from exif data
+"""
 def get_date_taken_EXIF(path):
     try:
         date = Image.open(path)._getexif()[36867]
-        date = date.replace(":","-")
+        date = date.replace(":", "-")
         return date, True
     except:
         return 0, False
 
+"""
+gets file modify date from os
+"""
 def get_date_modification_SYSTEM(path):
     try:
         posix_time = os.path.getmtime(path)
@@ -59,6 +66,9 @@ def get_date_modification_SYSTEM(path):
     except(FileNotFoundError):
         return 0, False
 
+"""
+creates dir if not exists returns it regardless
+"""
 def create_dir_if_not_exists(dir_path, dir_name):
     dir = dir_path + os.sep + dir_name
     try:
@@ -67,21 +77,29 @@ def create_dir_if_not_exists(dir_path, dir_name):
     except FileExistsError:
         return dir
 
+"""
+checks the extensions list for selecting files if * is given returns 1 to accept all files
+"""
 def check_extension(extensions_list, path):
-    if(extensions_list[0] == "*"):
+    if (extensions_list[0] == "*"):
         return 1
     else:
         for extension in extensions_list:
-            if(os.path.splitext(path)[1] == extension):
+            if (os.path.splitext(path)[1] == extension):
                 return 1
         return 0
 
+"""
+prints list line by line
+"""
 def printlist(list):
     for i in range(len(list)):
         print((i + 1).__str__() + ": " + list[i])
 
 
-
+"""
+gets commands entered converts them into usefull format
+"""
 def parse_command(date_source_selection, cp_or_mv_selection, day_monty_year_selection,extensions, path_from, path_to):
 
     extensions_list = []
@@ -118,12 +136,11 @@ def parse_command(date_source_selection, cp_or_mv_selection, day_monty_year_sele
         are_parameters_ok = False
         print(new_main_dir_path + " is not a dir")
 
-
-
     return are_parameters_ok, extensions_list
 
-
-
+"""
+useage information for -- jelp menu
+"""
 def help():
     print("""
         Info: This program separates and re-folders files according to their system modification or exif dates.
@@ -153,73 +170,89 @@ def help():
 
 
 
+def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection, extensions_list, old_main_dir,new_main_dir):
 
-def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection, extensions_list, old_main_dir, new_main_dir):
+    # -------------------------------------------gating all files from all subdirs--------------------------------------
 
-    #--------------------------------------------gating all files from all subdirs------------------------------------------------
-
-    all_subdirs = [] #unused
+    all_subdirs = []  # unused
     file_paths = []
 
-    for sub_dir in os.walk(old_main_dir):                            #walks on subdirs
-        all_subdirs.append(sub_dir[0])                               #apends all subdirs (unused)
-        file_paths_temp = os.listdir(sub_dir[0])                     #gets all files from a subdir and puts them inside file_paths_temp
-        for file_path_temp in file_paths_temp:                       #walks on the files that we get
-            abs_path = sub_dir[0] + os.sep + file_path_temp          #adds path to the name of the file to get abs path
-            if(os.path.isfile(abs_path)):                            #checks if abs path is file or folder if it is file than ok
-                if(check_extension(extensions_list, abs_path)):      #calls check extensions function for checking the extension
-                    file_paths.append(abs_path)                      #if extension is ok than apend it to file paths
-
-    #printlist(file_paths)
-    #------------------------------------------------------------------------------------------------------------------------------
+    for sub_dir in os.walk(old_main_dir):                         # walks on subdirs
+        all_subdirs.append(sub_dir[0])                            # apends all subdirs (unused)
+        file_paths_temp = os.listdir(sub_dir[0])                  # gets all files from a subdir and puts them inside file_paths_temp
+        for file_path_temp in file_paths_temp:                    # walks on the files that we get from a single subdir
+            abs_path = sub_dir[0] + os.sep + file_path_temp       # adds path to the name of the file to get abs path
+            if (os.path.isfile(abs_path)):                        # checks if abs path is file or folder if it is file than ok
+                if (check_extension(extensions_list,abs_path)):   # calls check extensions function for checking the extension
+                    file_paths.append(abs_path)                   # if extension is ok than apend it to file paths
 
 
-    #----------------------------------------------copy or move files to apropriate destinations-----------------------------------
+    # printlist(file_paths)
+
+    # ------------------------------copy or move files to apropriate destinations-----------------------------------
+
+    # split new path and name
     new_main_dir_path, new_main_dir_name = os.path.split(new_main_dir)
 
+    # create new folder for puting seperated stuff in
     create_dir_if_not_exists(dir_path=new_main_dir_path, dir_name=new_main_dir_name)
 
+    # status for informatin
     status = 1
     for file_path in file_paths:
-
 
         print(len(file_paths).__str__() + "/" + status.__str__() + " -> " + os.path.basename(file_path))
         status += 1
 
+        # these are needed to understand existance ofdates
         is_exif_exists = False
         is_modified_date_exists = False
 
-        if(date_source_selection == "-E" or date_source_selection == "-ES"):
-            date, is_exif_exists= get_date_taken_EXIF(path=file_path)
-            if(is_exif_exists):
-                if (day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+        # this part tries to get exif date if E or ES option selected
+        if (date_source_selection == "-E" or date_source_selection == "-ES"):
+            # getting exif date
+            date, is_exif_exists = get_date_taken_EXIF(path=file_path)
+            # if date exists
+            if (is_exif_exists):
+                # is yearly option selected create only year directory
+                if (
+                        day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                     dir_for_copy = create_dir_if_not_exists(dir_path=new_main_dir, dir_name=date[:4])
-                    if(day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+                    # if month selected create months inside the years
+                    if (day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                         dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:7] + "-exif")
+                        # if day selected create days insdide months
                         if (day_monty_year_selection == "-d"):
                             dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:10])
 
-        if((date_source_selection == "-S" or date_source_selection == "-ES") and (not is_exif_exists)):
+        # this part gets system provided modify date if S or ES option selected
+        if ((date_source_selection == "-S" or date_source_selection == "-ES") and (not is_exif_exists)):
+            # getting system date
             date, is_modified_date_exists = get_date_modification_SYSTEM(path=file_path)
+            # if date exists
             if (is_modified_date_exists):
-                if (day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+                # is yearly option selected create only year directory
+                if (
+                        day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                     dir_for_copy = create_dir_if_not_exists(dir_path=new_main_dir, dir_name=date[:4])
-                    if(day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+                    # if month selected create months inside the years
+                    if (day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                         dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:7])
+                        # if day selected create days insdide months
                         if (day_monty_year_selection == "-d"):
                             dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:10])
 
-
+        # if no date found anywhere dont touch that file
         if (not is_modified_date_exists and not is_exif_exists):
             continue
 
-
-        #now we have destination path but there can be collision so we check for that and make a rename if needed
+        # now we have destination path but there can be collision so we check for that and make a rename if needed
         dest = check_existace_and_rename(src_path=file_path, dest_path=dir_for_copy)
 
-        if(cp_or_mv_selection == "-cp"):
+        # copy or move file to destination
+        if (cp_or_mv_selection == "-cp"):
             copy_file(src=file_path, dest=dest)
-        elif(cp_or_mv_selection == "-mv"):
+        elif (cp_or_mv_selection == "-mv"):
             move_file(src=file_path, dest=dest)
 
 
@@ -228,6 +261,10 @@ def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection
 
 
 
+"""
+uses 6 arguments -date source- copy or move -day month year selection- -extension to use- -old path- and -new path-
+parses those 6 arguments via parse_command function if there is a problem with arguments offers help if not calls separate function to make separation
+"""
 if __name__ == "__main__":
     try:
         date_source_selection = str(sys.argv[1])
