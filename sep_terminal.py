@@ -3,16 +3,18 @@ import sys
 import shutil
 import datetime
 from PIL import Image
-
+ 
 
 """
-checks the existance of a file and renames it if it exists on the destination and returns the abs path of destination
+checks the existence of a file and renames it if it exists on the destination and returns the abs path of destination
 """
 def check_existace_and_rename(src_path, dest_path):
     i = 1
     file_name = os.path.basename(src_path)
     name_temp = file_name
+    is_name_changed = False
     while os.path.exists(dest_path + os.sep + name_temp):
+        is_name_changed = True
         name_temp = file_name
         name_without_extension = os.path.splitext(name_temp)[0]
         extension = os.path.splitext(name_temp)[1]
@@ -20,7 +22,7 @@ def check_existace_and_rename(src_path, dest_path):
         name_temp = name_without_extension + "(" + i.__str__() + ")" + extension
         i += 1
 
-    return dest_path + os.sep + name_temp
+    return (dest_path + os.sep + name_temp), is_name_changed, src_path 
 
 """
 moves file
@@ -98,6 +100,14 @@ def printlist(list):
 
 
 """
+writes list line by line
+"""
+def writelist(file, list):
+    for i in range(len(list)):
+        file.write((i + 1).__str__() + ": " + list[i] + "\n")
+
+
+"""
 gets commands entered converts them into usefull format
 """
 def parse_command(date_source_selection, cp_or_mv_selection, day_monty_year_selection,extensions, path_from, path_to):
@@ -169,7 +179,67 @@ def help():
     """)
 
 
+"""
+writes lists to a file
+"""
+def write_extra_info_to_file(path, file_name, all_files_list, files_with_no_exif_list, changed_file_names_list):
+    with open(path + os.sep + file_name + ".txt", 'a', encoding='utf-8') as file:
 
+        #if exif is not selected we should notify
+        if(files_with_no_exif_list[0] == "exif_not_selected"):
+            exif_count = "exif data not scanned (if you want to get exif information, use with exif option selected)"
+        else:
+            exif_count = len(files_with_no_exif_list).__str__()
+        
+
+        file.write("--- Content of the file --- \n 1-All files and their old and new directories. Total: " + len(all_files_list).__str__()
+                + " \n 2-Files with no exif data. Total: " + exif_count
+                + "\n 3-Files that renamed because of the name collision. Total: " +  len(changed_file_names_list).__str__())
+        file.write("\n")
+        file.write("\n")
+        
+        file.write("\n")
+        file.write("\n")
+        file.write("----------------------------------------------------")
+        file.write("\n")
+        file.write("--- List of all files and directories old -> new ---")
+        file.write("\n")
+        file.write("----------------------------------------------------")
+        file.write("\n")
+        file.write("\n")
+
+        writelist(file, all_files_list)
+        
+        file.write("\n")
+        file.write("\n")
+        file.write("--------------------------------------------------")
+        file.write("\n")
+        file.write("--- List of files that has no exif information ---")
+        file.write("\n")
+        file.write("--------------------------------------------------")
+        file.write("\n")
+        file.write("\n")
+
+        writelist(file, files_with_no_exif_list)
+        
+        file.write("\n")
+        file.write("\n")
+        file.write("----------------------------------------------------------------")
+        file.write("\n")
+        file.write("--- List of files that renamed because of the name collision ---")
+        file.write("\n")
+        file.write("----------------------------------------------------------------")
+        file.write("\n")
+        file.write("\n")
+
+        writelist(file, changed_file_names_list)
+        
+            
+
+
+"""
+gets all file paths in a directory separetes those files according to the given values and re-folders them
+"""
 def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection, extensions_list, old_main_dir,new_main_dir):
 
     # -------------------------------------------gating all files from all subdirs--------------------------------------
@@ -199,6 +269,12 @@ def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection
 
     # status for informatin
     status = 1
+    
+    #those lists are for report file they are for collecting and displaying extra information in the report file
+    changed_file_names_list = []
+    files_with_no_exif_list = []
+    all_files_list = []
+
     for file_path in file_paths:
 
         print(len(file_paths).__str__() + "/" + status.__str__() + " -> " + os.path.basename(file_path))
@@ -214,16 +290,15 @@ def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection
             date, is_exif_exists = get_date_taken_EXIF(path=file_path)
             # if date exists
             if (is_exif_exists):
-                # is yearly option selected create only year directory
-                if (
-                        day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
-                    dir_for_copy = create_dir_if_not_exists(dir_path=new_main_dir, dir_name=date[:4])
-                    # if month selected create months inside the years
+                if (day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+                    dir_for_copy = create_dir_if_not_exists(dir_path=new_main_dir, dir_name=date[:4] + "-exif")
                     if (day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
-                        dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:7] + "-exif")
-                        # if day selected create days insdide months
+                        dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:7])
                         if (day_monty_year_selection == "-d"):
                             dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:10])
+            else:
+                #---(FOR report text)--- appending files that has no exif info to the list ---(FOR report text)---
+                files_with_no_exif_list.append(file_path)
 
         # this part gets system provided modify date if S or ES option selected
         if ((date_source_selection == "-S" or date_source_selection == "-ES") and (not is_exif_exists)):
@@ -231,23 +306,26 @@ def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection
             date, is_modified_date_exists = get_date_modification_SYSTEM(path=file_path)
             # if date exists
             if (is_modified_date_exists):
-                # is yearly option selected create only year directory
-                if (
-                        day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
+                if (day_monty_year_selection == "-y" or day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                     dir_for_copy = create_dir_if_not_exists(dir_path=new_main_dir, dir_name=date[:4])
-                    # if month selected create months inside the years
                     if (day_monty_year_selection == "-m" or day_monty_year_selection == "-d"):
                         dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:7])
-                        # if day selected create days insdide months
                         if (day_monty_year_selection == "-d"):
                             dir_for_copy = create_dir_if_not_exists(dir_path=dir_for_copy, dir_name=date[:10])
 
-        # if no date found anywhere dont touch that file
+        # if no date found anywhere don't touch that file
         if (not is_modified_date_exists and not is_exif_exists):
             continue
 
-        # now we have destination path but there can be collision so we check for that and make a rename if needed
-        dest = check_existace_and_rename(src_path=file_path, dest_path=dir_for_copy)
+        #now we have destination path but there can be collision so we check for that and make a rename if needed
+        dest, is_name_changed, original_src = check_existace_and_rename(src_path=file_path, dest_path=dir_for_copy)
+
+        #---(FOR report text)--- if name changed append this file to changed_file_names_list ---(FOR report text)---
+        if(is_name_changed):
+            changed_file_names_list.append(original_src + " -> " + dest)
+
+        #---(FOR report text)--- append every file to all_files_list this will be used in the report text ---(FOR report text)---
+        all_files_list.append(original_src + " -> " + dest)
 
         # copy or move file to destination
         if (cp_or_mv_selection == "-cp"):
@@ -255,9 +333,12 @@ def seperate(date_source_selection, cp_or_mv_selection, day_monty_year_selection
         elif (cp_or_mv_selection == "-mv"):
             move_file(src=file_path, dest=dest)
 
+    #---(FOR report text)--- if exif id not checked at all we need to show it in the report ---(FOR report text)---
+    if(date_source_selection == "-S"):
+        files_with_no_exif_list.append("exif_not_selected")
 
-
-
+    #writing all the extra information to info file
+    write_extra_info_to_file(new_main_dir, "Report", all_files_list, files_with_no_exif_list, changed_file_names_list)
 
 
 
